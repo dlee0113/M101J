@@ -1,14 +1,20 @@
 package com.test;
 
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 
-import com.mongodb.BasicDBObject;
-import com.mongodb.DB;
-import com.mongodb.DBCollection;
-import com.mongodb.DBCursor;
-import com.mongodb.DBObject;
+import org.bson.Document;
+
 import com.mongodb.MongoClient;
+import com.mongodb.client.AggregateIterable;
+import com.mongodb.client.MongoCollection;
+import com.mongodb.client.MongoDatabase;
+
+import static com.mongodb.client.model.Filters.eq;
+import static com.mongodb.client.model.Filters.gt;
+import static com.mongodb.client.model.Filters.gte;
 
 public class MongoDBJDBC {
 	public static void main(String args[]) {
@@ -17,44 +23,45 @@ public class MongoDBJDBC {
 			MongoClient mongoClient = new MongoClient("localhost", 27017);
 
 			// Now connect to your databases
-			DB db = mongoClient.getDB("students");
+			MongoDatabase database = mongoClient.getDatabase("students");
 			System.out.println("Connect to database successfully");
 //			boolean auth = db.authenticate("", "".toCharArray());
 //			System.out.println("Authentication: " + auth);
 			
-			DBCollection coll = db.getCollection("grades");
+			MongoCollection<Document> collection = database.getCollection("grades");
 	        System.out.println("Collection mycol selected successfully");
 	        
-//			$group : {
-//				_id : "$student_id", 
-//				min_score : {$min : "$score"},
-//				objectId : {$first : "$_id"}
-//			}
+//	        Document first = collection.find().first();
+//	        System.out.println(first);
 	        
-//	        DBObject groupFields = new BasicDBObject("_id", "$student_id").append("min_score", new BasicDBObject( "$min", "$score"));
-	        DBObject groupFields = new BasicDBObject("_id", "$student_id").
-		        							append("min_score", new BasicDBObject("$min", "$score")).
-		        							append("objectId", new BasicDBObject("$first", "$_id"));
+	        AggregateIterable<Document> iterable = collection.aggregate(Arrays.asList(
+	        		new Document("$match", new Document("type", "homework")),
+	        		new Document("$sort", new Document("student_id", 1).append("score", 1)))
+	        );
 	        
-	        Iterable<DBObject> output = coll.aggregate(
-	        		(DBObject) new BasicDBObject("$match", new BasicDBObject("type", "homework")),
-	        		(DBObject) new BasicDBObject("$group", groupFields),
-	        		(DBObject) new BasicDBObject("$sort",  new BasicDBObject("_id", 1))
-	        ).results();
+	        int count = 0;
+	        List<Document> documents = new ArrayList<Document>();
 	        
-	        BasicDBObject query = new BasicDBObject();
-	        List<Integer> list = new ArrayList<Integer>();
-	        
-//	        collection.remove(new BasicDBObject().append("empId", 10002));
-	        
-	        for (DBObject dbObject : output)
-	        {
-	            System.out.println(dbObject);
-	            list.add((Integer) dbObject.get("_id"));
-	            
+	        Iterator<Document> iterator = iterable.iterator();
+	        while (iterator.hasNext()) {
+	        	Document document = iterator.next();
+	        	
+	        	if (count % 2 == 0) {
+	        		documents.add(document);
+	        	}
+	        	
+	        	count++;
 	        }
-	        System.out.println(list);
 	        
+	        System.out.println();
+	        System.out.println(documents.size());
+	        
+	        for (Document document : documents) {
+	        	System.out.println(document);
+	        	collection.deleteOne(eq("_id", document.getObjectId("_id")));
+	        }
+	        
+	        System.out.println(collection.count());
 		} catch (Exception e) {
 			System.err.println(e.getClass().getName() + ": " + e.getMessage());
 		}
