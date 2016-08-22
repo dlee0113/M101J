@@ -105,15 +105,17 @@ public class BlogPostDAO {
         // - best solution uses an update command to the database and a suitable
         //   operator to append the comment on to any existing list of comments
     	
-//        Document comment = new Document();
-//        
-//        if (email == null) {
-//        	comment.append("name", name).append("body", body).append("permalink", permalink);
-//        }
-//        else {
-//        	comment.append("name", name).append("email", email).append("body", body).append("permalink", permalink);
-//        }
-
+        Document comment = new Document();
+        
+        if (email == null) {
+        	comment.append("author", name).append("body", body);
+        }
+        else {
+        	comment.append("author", name).append("body", body).append("email", email);
+        }
+        
+        postsCollection.updateOne(eq("permalink", permalink), 
+        							new Document("$addToSet", new Document("comments", comment)));
         
     }
 }
